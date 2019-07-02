@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+
+</head>
+<body>
+Hello socket
+<div class="name-display"></div>
+<input type="text" class="name-change">
+<button id="handleChange">Change Name</button>
+<div>Connected clients:</div>
+<div class="clients"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.0.4/socket.io.js"></script>
+<script src="http://code.jquery.com/jquery-latest.min.js"></script>
+<script>
+  $(function () {
+    const socket = io.connect('http://localhost:3000')
+    const user = {};
+
+    socket.on("change_username", data => {
+      user.name = data.name;
+      user.hash = data.hash;
+      $('.name-display').text(`Socket name: ${data.name}`);
+    })
+
+    $('#handleChange').click(function () {
+      socket.emit("change_username", {name: $('.name-change').val(), hash: user.hash})
+    })
+
+    socket.on("update_userslist", data => {
+      $('.clients').html(data.clients.map(client=>`<div>${client}<div/>`))
+    })
+
+  })
+</script>
+</body>
+</html>

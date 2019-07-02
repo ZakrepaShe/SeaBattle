@@ -1,0 +1,26 @@
+{
+  "name": "SeaBattle",
+  "version": "1.0.0",
+  "description": "SeaBattle with server multiplayer",
+  "main": "server.js",
+  "scripts": {
+    "start": "nodemon server"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ZakrepaShe/SeaBattle.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/ZakrepaShe/SeaBattle/issues"
+  },
+  "homepage": "https://github.com/ZakrepaShe/SeaBattle#readme",
+  "dependencies": {
+    "ejs": "^2.6.2",
+    "express": "^4.17.1",
+    "nodemon": "^1.19.1",
+    "socket.io": "^2.2.0"
+  }
+}
