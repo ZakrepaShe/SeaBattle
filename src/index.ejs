@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <style>
+    .row {
+      display: flex;
+    }
+    .col {
+      display: block;
+    }
+  </style>
+</head>
+<body>
+<div class="name-display"></div>
+<input type="text" class="name-change">
+<button id="changeNameButton">Change Name</button>
+
+<div class="col">
+  <label for="email-login">Email</label>
+  <input type="email" class="col" id="email-login">
+</div>
+<div class="col">
+  <label for="password-login">Password</label>
+  <input class="col" type="password" id="password-login">
+</div>
+<div>
+  <button id="loginButton">Login</button>
+  <button id="logoutButton">Logout</button>
+</div>
+
+<div>Connected clients:</div>
+<div class="clients"></div>
+</body>
+</html>
