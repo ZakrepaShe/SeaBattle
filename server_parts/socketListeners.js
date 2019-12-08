@@ -1,4 +1,8 @@
-const { getDbUserData, updateDbUserName } = require('./sqlMiddleware');
+const {
+  getDbUserData,
+  updateDbUserName,
+  registerDbUser
+} = require('./sqlMiddleware');
 
 const connectedUsers = {};
 
@@ -37,8 +41,8 @@ const socketListeners = (io, socket) => {
     name: 'Anonymus',
     hash: socketId,
     isLoggedIn: false,
-    email: null,
-    password: null
+    email: '',
+    password: ''
   };
 
   connectedUsers[socketId] = {
@@ -55,6 +59,8 @@ const socketListeners = (io, socket) => {
   updateUserslist();
   console.log(`client ${socketId} connected`);
 
+  // TODO: get row by email and check pass
+  // TODO: restore pass
   socket.on('login', ({ email, password }) => {
     getDbUserData({ email, password }, (err, res) => {
       if (err) {
@@ -68,6 +74,7 @@ const socketListeners = (io, socket) => {
           };
           updateUserslist();
         }
+        console.log(connectedUsers[socketId]);
         sendBack(
           null,
           'update_user',
@@ -99,6 +106,47 @@ const socketListeners = (io, socket) => {
         }
       });
     }
+    sendBack(null, 'update_user', connectedUsers[socketId]);
+    updateUserslist();
+  });
+
+  // TODO: get row by email and check pass -> login or register (only email is unique)
+  socket.on('register_user', ({ name, email, password }) => {
+    getDbUserData({ email, password }, (err, res) => {
+      if (err) {
+        console.log('error: ', err);
+      } else if (res[0]) {
+        connectedUsers[socketId] = {
+          ...connectedUsers[socketId],
+          ...res[0],
+          isLoggedIn: true
+        };
+        updateUserslist();
+        console.log(connectedUsers[socketId]);
+        sendBack(
+          null,
+          'update_user',
+          res[0] ? connectedUsers[socketId] : { error: 'No user' }
+        );
+      } else {
+        registerDbUser({ name, email, password }, error => {
+          if (error) {
+            console.log('error: ', err);
+          } else {
+            connectedUsers[socketId] = {
+              ...connectedUsers[socketId],
+              name,
+              email,
+              password,
+              isLoggedIn: true
+            };
+            console.log(connectedUsers[socketId]);
+            updateUserslist();
+            sendBack(null, 'update_user', connectedUsers[socketId]);
+          }
+        });
+      }
+    });
     sendBack(null, 'update_user', connectedUsers[socketId]);
     updateUserslist();
   });

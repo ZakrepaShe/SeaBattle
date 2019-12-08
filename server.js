@@ -22,6 +22,10 @@ app.get('/', (req, res) => {
   res.render('index');
 });
 
+app.get('/lobby', (req, res) => {
+  res.render('index');
+});
+
 const str = 'abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 const getRandomSymbol = () => str[Math.floor(Math.random() * str.length)];
 // eslint-disable-next-line no-unused-vars
