@@ -4,7 +4,7 @@
   "description": "SeaBattle with server multiplayer",
   "main": "server.js",
   "scripts": {
-    "startserver": "nodemon server",
+    "server": "nodemon server",
     "watch": "webpack --watch --mode development",
     "build": "webpack --mode production",
     "lint": "eslint src --fix"
@@ -79,5 +79,8 @@
       "eslint --fix",
       "git add"
     ]
+  },
+  "nodemonConfig": {
+    "ignore": ["src/*", "dist/*", "node_modules/*"]
   }
 }

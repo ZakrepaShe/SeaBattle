@@ -7,11 +7,21 @@ import {
   userEmailSelector,
   userPasswordSelector,
   userLoginStateSelector,
+  userHashSelector,
+  userInBattleSelector,
   clearUserAction
 } from '../reducers/user';
 import { socket } from '../socket';
 
-const Lobby = ({ name, isLoggedIn, email, password, clients, clearUser }) => {
+const Lobby = ({
+  name,
+  isLoggedIn,
+  email,
+  password,
+  clients,
+  hash,
+  clearUser
+}) => {
   const [userName, changeUserName] = useState('');
   const [userEmail, changeUserEmail] = useState('');
   const [userPassword, changeUserPassword] = useState('');
@@ -66,6 +76,20 @@ const Lobby = ({ name, isLoggedIn, email, password, clients, clearUser }) => {
     clearUser();
   }, []);
 
+  const inviteHandler = useCallback(
+    (clientHash, invites) => () => {
+      socket.emit(invites ? 'accept_invite' : 'invite', { hash: clientHash });
+    },
+    []
+  );
+
+  const rejectInviteHandler = useCallback(
+    clientHash => () => {
+      socket.emit('reject_invite', { hash: clientHash });
+    },
+    []
+  );
+
   return (
     <>
       <div className="name-display">{name}</div>
@@ -106,14 +130,14 @@ const Lobby = ({ name, isLoggedIn, email, password, clients, clearUser }) => {
       )}
       <div>
         {!isLoggedIn && (
-          <button onClick={loginHandler} type="button" id="loginButton">
-            Login
-          </button>
-        )}
-        {!isLoggedIn && (
-          <button onClick={registerHandler} type="button" id="loginButton">
-            Register
-          </button>
+          <>
+            <button onClick={loginHandler} type="button" id="loginButton">
+              Login
+            </button>
+            <button onClick={registerHandler} type="button" id="loginButton">
+              Register
+            </button>
+          </>
         )}
         {isLoggedIn && (
           <button onClick={logoutHandler} type="button" id="logoutButton">
@@ -124,9 +148,38 @@ const Lobby = ({ name, isLoggedIn, email, password, clients, clearUser }) => {
 
       <div>Connected clients:</div>
       <div className="clients">
-        {clients.map((client, id) => (
-          <div key={client + id}>{client}</div>
-        ))}
+        {clients.map(
+          ({
+            name: clientName,
+            hash: clientHash,
+            invited,
+            invites,
+            isInBattle
+          }) => (
+            <div key={clientHash}>
+              {clientName}
+              {hash !== clientHash && !isInBattle && (
+                <>
+                  <button
+                    onClick={inviteHandler(clientHash, invites)}
+                    type="button"
+                  >
+                    {invites ? 'join' : invited ? 'invited' : 'invite'}
+                  </button>
+                  {invites && (
+                    <button
+                      onClick={rejectInviteHandler(clientHash)}
+                      type="button"
+                    >
+                      reject
+                    </button>
+                  )}
+                </>
+              )}
+              {isInBattle ? ' - In battle' : ''}
+            </div>
+          )
+        )}
       </div>
     </>
   );
@@ -137,7 +190,9 @@ const mapStateToProps = state => ({
   name: userNameSelector(state),
   email: userEmailSelector(state),
   password: userPasswordSelector(state),
-  isLoggedIn: userLoginStateSelector(state)
+  isLoggedIn: userLoginStateSelector(state),
+  hash: userHashSelector(state),
+  isInBattle: userInBattleSelector(state)
 });
 
 const mapDispatchToProps = dispatch =>

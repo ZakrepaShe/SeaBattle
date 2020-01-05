@@ -40,6 +40,16 @@ export const userLoginStateSelector = createSelector(
   getReducerProp('isLoggedIn')
 );
 
+export const userHashSelector = createSelector(
+  stateSelector(REDUCER_NAME),
+  getReducerProp('hash')
+);
+
+export const userInBattleSelector = createSelector(
+  stateSelector(REDUCER_NAME),
+  getReducerProp('isInBattle')
+);
+
 export default handleActions(
   {
     [UPDATE_USER]: defaultActionHandler,

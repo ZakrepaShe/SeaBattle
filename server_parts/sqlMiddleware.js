@@ -1,12 +1,8 @@
 const db = require('./mySqlConnection');
 
 const sqlMids = {
-  getDbUserData: ({ email, password }, cb) => {
-    db.query(
-      'SELECT * FROM `userdata` WHERE `email` = ? AND `password` = ?',
-      [email, password],
-      cb
-    );
+  getDbUserData: ({ email }, cb) => {
+    db.query('SELECT * FROM `userdata` WHERE `email` = ?', [email], cb);
   },
   updateDbUserName: ({ name, email }, cb) => {
     db.query(

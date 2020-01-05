@@ -3,158 +3,229 @@ const {
   updateDbUserName,
   registerDbUser
 } = require('./sqlMiddleware');
+const {
+  withErrLog,
+  excludeKeys,
+  excludeItems,
+  makeSendBack,
+  makeSendAll,
+  makeSendTo,
+  updateValByKeyOfObj
+} = require('./utils');
 
 const connectedUsers = {};
+const battlesData = {};
 
 const socketListeners = (io, socket) => {
   /** Common functions * */
   // send response only to requested client
-  function sendBack(err, type, data) {
-    if (err) {
-      console.log(err);
-    } else {
-      socket.emit(type, data);
-    }
-  }
-
+  const sendBack = makeSendBack(socket);
   // send response to all connected clients
-  function sendAll(err, type, data) {
-    if (err) {
-      console.log(err);
-    } else {
-      io.sockets.emit(type, data);
-    }
-  }
-
-  // send response to specified client
   // eslint-disable-next-line no-unused-vars
-  function sendTo(err, data, type, userId) {
-    if (err) {
-      console.log(err);
-    } else if (connectedUsers[userId]) {
-      io.to(userId).emit(type, data);
-    }
-  }
+  const sendAll = makeSendAll(io);
+  // send response to specified client
+  const sendTo = makeSendTo(io, connectedUsers);
 
   const socketId = socket.id;
+  // for in-listener usage
+  let user = connectedUsers[socketId];
+
+  const updateUserInfo = updateValByKeyOfObj(connectedUsers);
+
+  const updateBattleCommonData = updateValByKeyOfObj(battlesData);
+
+  const syncConnectedUserLocalInfo = () => {
+    user = excludeKeys(connectedUsers[socketId], [
+      'id',
+      'incomingInvites',
+      'outcomingInvites'
+    ]);
+  };
+
+  const updateConnectedUserInfo = info => {
+    updateUserInfo(socketId, info);
+    syncConnectedUserLocalInfo();
+  };
+
   const initialUser = {
     name: 'Anonymus',
     hash: socketId,
     isLoggedIn: false,
     email: '',
-    password: ''
+    password: '',
+    incomingInvites: [],
+    outcomingInvites: [],
+    isInBattle: false
   };
 
-  connectedUsers[socketId] = {
-    ...initialUser
-  };
+  const resetConnectedUserInfo = () =>
+    updateConnectedUserInfo({
+      ...initialUser
+    });
 
-  const updateUserslist = () => {
-    sendAll(null, 'update_userslist', {
-      clients: Object.values(connectedUsers).map(({ name }) => name)
+  resetConnectedUserInfo();
+
+  const updateUsersList = () => {
+    Object.keys(connectedUsers).forEach(userId => {
+      sendTo(null, userId, 'update_userslist', {
+        clients: Object.values(connectedUsers).map(
+          ({ incomingInvites, outcomingInvites, ...rest }) => ({
+            invited: incomingInvites.some(userHash => userHash === userId),
+            invites: outcomingInvites.some(userHash => userHash === userId),
+            ...rest
+          })
+        )
+      });
     });
   };
 
-  sendBack(null, 'update_user', connectedUsers[socketId]);
-  updateUserslist();
+  const loginOnServer = (
+    dbUserData,
+    password,
+    error = 'Error in Email or Password'
+  ) => {
+    console.log(dbUserData);
+    if (dbUserData.password === password) {
+      updateConnectedUserInfo({
+        ...dbUserData,
+        isLoggedIn: true
+      });
+      updateUsersList();
+      sendBack(null, 'update_user', user);
+    } else {
+      sendBack(null, 'update_user', {
+        error
+      });
+    }
+  };
+
+  const registerOnServer = ({ name, email, password }) => {
+    registerDbUser(
+      { name, email, password },
+      withErrLog(() => {
+        getDbUserData(
+          { email },
+          withErrLog(([dbUserData]) => {
+            if (dbUserData) {
+              loginOnServer(dbUserData, password, 'Err on registration');
+            }
+            console.log(user);
+            sendBack(null, 'update_user', { error: 'Err on registration' });
+          })
+        );
+      })
+    );
+  };
+
+  sendBack(null, 'update_user', user);
+  updateUsersList();
   console.log(`client ${socketId} connected`);
 
-  // TODO: get row by email and check pass
   // TODO: restore pass
   socket.on('login', ({ email, password }) => {
-    getDbUserData({ email, password }, (err, res) => {
-      if (err) {
-        console.log('error: ', err);
-      } else {
-        if (res[0]) {
-          connectedUsers[socketId] = {
-            ...connectedUsers[socketId],
-            ...res[0],
-            isLoggedIn: true
-          };
-          updateUserslist();
+    getDbUserData(
+      { email },
+      withErrLog(([dbUserData]) => {
+        if (dbUserData) {
+          loginOnServer(dbUserData, password);
+        } else {
+          sendBack(null, 'update_user', { error: 'No user' });
         }
-        console.log(connectedUsers[socketId]);
-        sendBack(
-          null,
-          'update_user',
-          res[0] ? connectedUsers[socketId] : { error: 'No user' }
-        );
-      }
-    });
+      })
+    );
   });
 
   socket.on('logout', () => {
-    if (connectedUsers[socketId]) {
-      connectedUsers[socketId] = {
-        ...initialUser
-      };
-      sendBack(null, 'update_user', connectedUsers[socketId]);
-      updateUserslist();
+    if (user.isLoggedIn) {
+      resetConnectedUserInfo();
+      sendBack(null, 'update_user', user);
+      updateUsersList();
     }
   });
 
   socket.on('update_user', ({ name }) => {
-    connectedUsers[socketId] = {
-      ...connectedUsers[socketId],
+    updateConnectedUserInfo({
       name
-    };
-    if (connectedUsers[socketId].isLoggedIn) {
-      updateDbUserName(connectedUsers[socketId], err => {
-        if (err) {
-          console.log('error: ', err);
-        }
-      });
+    });
+    if (user.isLoggedIn) {
+      updateDbUserName(user, withErrLog());
     }
-    sendBack(null, 'update_user', connectedUsers[socketId]);
-    updateUserslist();
+    sendBack(null, 'update_user', user);
+    updateUsersList();
   });
 
-  // TODO: get row by email and check pass -> login or register (only email is unique)
+  // login or register (only email is unique)
   socket.on('register_user', ({ name, email, password }) => {
-    getDbUserData({ email, password }, (err, res) => {
-      if (err) {
-        console.log('error: ', err);
-      } else if (res[0]) {
-        connectedUsers[socketId] = {
-          ...connectedUsers[socketId],
-          ...res[0],
-          isLoggedIn: true
-        };
-        updateUserslist();
-        console.log(connectedUsers[socketId]);
-        sendBack(
-          null,
-          'update_user',
-          res[0] ? connectedUsers[socketId] : { error: 'No user' }
-        );
-      } else {
-        registerDbUser({ name, email, password }, error => {
-          if (error) {
-            console.log('error: ', err);
-          } else {
-            connectedUsers[socketId] = {
-              ...connectedUsers[socketId],
-              name,
-              email,
-              password,
-              isLoggedIn: true
-            };
-            console.log(connectedUsers[socketId]);
-            updateUserslist();
-            sendBack(null, 'update_user', connectedUsers[socketId]);
-          }
-        });
-      }
-    });
-    sendBack(null, 'update_user', connectedUsers[socketId]);
-    updateUserslist();
+    getDbUserData(
+      { email },
+      withErrLog(([dbUserData]) => {
+        if (dbUserData) {
+          loginOnServer(
+            dbUserData,
+            password,
+            'User Already Exists, Try to Login'
+          );
+        } else {
+          registerOnServer({ name, email, password });
+        }
+      })
+    );
+  });
+
+  socket.on('invite', ({ hash }) => {
+    if (connectedUsers[hash]) {
+      updateUserInfo(hash, {
+        incomingInvites: [...connectedUsers[hash].incomingInvites, socketId]
+      });
+      updateConnectedUserInfo({
+        outcomingInvites: [...connectedUsers[socketId].outcomingInvites, hash]
+      });
+      updateUsersList();
+    }
+  });
+
+  socket.on('reject_invite', ({ hash }) => {
+    if (connectedUsers[hash]) {
+      updateUserInfo(hash, {
+        outcomingInvites: excludeItems(connectedUsers[hash].incomingInvites, [
+          socketId
+        ])
+      });
+      updateConnectedUserInfo({
+        incomingInvites: excludeItems(
+          connectedUsers[socketId].outcomingInvites,
+          [hash]
+        )
+      });
+      updateUsersList();
+    }
+  });
+
+  socket.on('accept_invite', ({ hash }) => {
+    if (connectedUsers[hash]) {
+      updateUserInfo(hash, {
+        isInBattle: true
+      });
+      updateConnectedUserInfo({
+        isInBattle: true
+      });
+      updateBattleCommonData(hash, {
+        partner: socketId
+      });
+      updateBattleCommonData(socketId, {
+        partner: hash
+      });
+      updateUsersList();
+      sendTo(null, hash, 'start_battle', battlesData[hash]);
+      sendBack(null, 'start_battle', battlesData[socketId]);
+    }
   });
 
   socket.on('disconnect', () => {
     if (connectedUsers[socketId]) {
       delete connectedUsers[socketId];
-      updateUserslist();
+      user = null;
+      updateUsersList();
     }
   });
 };
