@@ -16,6 +16,9 @@ const {
 const connectedUsers = {};
 const battlesData = {};
 
+const updateUserInfo = updateValByKeyOfObj(connectedUsers);
+const updateBattleCommonData = updateValByKeyOfObj(battlesData);
+
 const socketListeners = (io, socket) => {
   /** Common functions * */
   // send response only to requested client
@@ -30,15 +33,12 @@ const socketListeners = (io, socket) => {
   // for in-listener usage
   let user = connectedUsers[socketId];
 
-  const updateUserInfo = updateValByKeyOfObj(connectedUsers);
-
-  const updateBattleCommonData = updateValByKeyOfObj(battlesData);
-
   const syncConnectedUserLocalInfo = () => {
     user = excludeKeys(connectedUsers[socketId], [
       'id',
       'incomingInvites',
-      'outcomingInvites'
+      'outcomingInvites',
+      'incomingInvitesRejected'
     ]);
   };
 
@@ -48,12 +48,13 @@ const socketListeners = (io, socket) => {
   };
 
   const initialUser = {
-    name: 'Anonymus',
+    name: 'Anonymous',
     hash: socketId,
     isLoggedIn: false,
     email: '',
     password: '',
     incomingInvites: [],
+    incomingInvitesRejected: [],
     outcomingInvites: [],
     isInBattle: false
   };
@@ -69,9 +70,17 @@ const socketListeners = (io, socket) => {
     Object.keys(connectedUsers).forEach(userId => {
       sendTo(null, userId, 'update_userslist', {
         clients: Object.values(connectedUsers).map(
-          ({ incomingInvites, outcomingInvites, ...rest }) => ({
+          ({
+            incomingInvites,
+            outcomingInvites,
+            incomingInvitesRejected,
+            ...rest
+          }) => ({
             invited: incomingInvites.some(userHash => userHash === userId),
             invites: outcomingInvites.some(userHash => userHash === userId),
+            rejected: incomingInvitesRejected.some(
+              userHash => userHash === userId
+            ),
             ...rest
           })
         )
@@ -84,7 +93,7 @@ const socketListeners = (io, socket) => {
     password,
     error = 'Error in Email or Password'
   ) => {
-    console.log(dbUserData);
+    console.log('LoggedIn', JSON.stringify(dbUserData, null, 2));
     if (dbUserData.password === password) {
       updateConnectedUserInfo({
         ...dbUserData,
@@ -109,7 +118,7 @@ const socketListeners = (io, socket) => {
             if (dbUserData) {
               loginOnServer(dbUserData, password, 'Err on registration');
             }
-            console.log(user);
+            console.log('Registered', JSON.stringify(user, null, 2));
             sendBack(null, 'update_user', { error: 'Err on registration' });
           })
         );
@@ -119,7 +128,7 @@ const socketListeners = (io, socket) => {
 
   sendBack(null, 'update_user', user);
   updateUsersList();
-  console.log(`client ${socketId} connected`);
+  console.log(`Client ${socketId} connected`);
 
   // TODO: restore pass
   socket.on('login', ({ email, password }) => {
@@ -175,11 +184,16 @@ const socketListeners = (io, socket) => {
   socket.on('invite', ({ hash }) => {
     if (connectedUsers[hash]) {
       updateUserInfo(hash, {
-        incomingInvites: [...connectedUsers[hash].incomingInvites, socketId]
+        incomingInvites: [...connectedUsers[hash].incomingInvites, socketId],
+        incomingInvitesRejected: excludeItems(
+          connectedUsers[hash].incomingInvitesRejected,
+          [socketId]
+        )
       });
       updateConnectedUserInfo({
         outcomingInvites: [...connectedUsers[socketId].outcomingInvites, hash]
       });
+      console.log('Invited', JSON.stringify(connectedUsers[socketId], null, 2));
       updateUsersList();
     }
   });
@@ -195,12 +209,22 @@ const socketListeners = (io, socket) => {
         incomingInvites: excludeItems(
           connectedUsers[socketId].outcomingInvites,
           [hash]
-        )
+        ),
+        incomingInvitesRejected: [
+          ...connectedUsers[socketId].incomingInvitesRejected,
+          hash
+        ]
       });
+
+      console.log(
+        'Rejected',
+        JSON.stringify(connectedUsers[socketId], null, 2)
+      );
       updateUsersList();
     }
   });
 
+  // change socket hash to db userId in order to continue battle on reconnection
   socket.on('accept_invite', ({ hash }) => {
     if (connectedUsers[hash]) {
       updateUserInfo(hash, {

@@ -154,6 +154,7 @@ const Lobby = ({
             hash: clientHash,
             invited,
             invites,
+            rejected,
             isInBattle
           }) => (
             <div key={clientHash}>
@@ -163,9 +164,11 @@ const Lobby = ({
                   <button
                     onClick={inviteHandler(clientHash, invites)}
                     type="button"
+                    disabled={invited}
                   >
                     {invites ? 'join' : invited ? 'invited' : 'invite'}
                   </button>
+                  {rejected && <span>rejected</span>}
                   {invites && (
                     <button
                       onClick={rejectInviteHandler(clientHash)}

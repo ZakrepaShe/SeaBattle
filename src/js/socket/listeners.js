@@ -6,14 +6,16 @@ import { updateBattlefieldAction } from '../reducers/battlefield';
 import { push } from '../utils/common';
 
 export const autoLogin = () => dispatch => {
-  const userData = getCookie('user');
-  if (userData) {
-    const parsedData = JSON.parse(userData);
-    if (parsedData.isLoggedIn) {
-      dispatch(updateUserAction(parsedData));
-      socket.emit('login', parsedData);
+  socket.on('connect', () => {
+    const userData = getCookie('user');
+    if (userData) {
+      const parsedData = JSON.parse(userData);
+      if (parsedData.isLoggedIn) {
+        dispatch(updateUserAction(parsedData));
+        socket.emit('login', parsedData);
+      }
     }
-  }
+  });
 };
 
 export const updateUserThunk = () => dispatch => {
