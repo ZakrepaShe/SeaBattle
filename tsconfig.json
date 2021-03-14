@@ -1,0 +1,19 @@
+{
+  "compilerOptions": {
+    "jsx": "react",
+    "baseUrl": "./src",
+    "typeRoots": ["node_modules/@types"],
+    "noEmit": true,
+    "esModuleInterop": true,
+    "noImplicitReturns": true,
+    "noImplicitThis": true,
+    "sourceMap": true,
+    "strict": true,
+    "strictNullChecks": true,
+    "preserveConstEnums": true,
+    "allowJs": true,
+    "skipLibCheck": true
+  },
+  "include": ["src/**/*", "node_modules/creator-addons-app"],
+  "exclude": ["node_modules/, webpack.config.js"]
+}

@@ -1,8 +1,4 @@
-const {
-  getDbUserData,
-  updateDbUserName,
-  registerDbUser
-} = require('./sqlMiddleware');
+const { getDbUserData, updateDbUserName, registerDbUser } = require('./sqlMiddleware');
 const {
   withErrLog,
   excludeKeys,
@@ -10,7 +6,7 @@ const {
   makeSendBack,
   makeSendAll,
   makeSendTo,
-  updateValByKeyOfObj
+  updateValByKeyOfObj,
 } = require('./utils');
 
 const connectedUsers = {};
@@ -38,11 +34,11 @@ const socketListeners = (io, socket) => {
       'id',
       'incomingInvites',
       'outcomingInvites',
-      'incomingInvitesRejected'
+      'incomingInvitesRejected',
     ]);
   };
 
-  const updateConnectedUserInfo = info => {
+  const updateConnectedUserInfo = (info) => {
     updateUserInfo(socketId, info);
     syncConnectedUserLocalInfo();
   };
@@ -56,54 +52,43 @@ const socketListeners = (io, socket) => {
     incomingInvites: [],
     incomingInvitesRejected: [],
     outcomingInvites: [],
-    isInBattle: false
+    isInBattle: false,
   };
 
   const resetConnectedUserInfo = () =>
     updateConnectedUserInfo({
-      ...initialUser
+      ...initialUser,
     });
 
   resetConnectedUserInfo();
 
   const updateUsersList = () => {
-    Object.keys(connectedUsers).forEach(userId => {
+    Object.keys(connectedUsers).forEach((userId) => {
       sendTo(null, userId, 'update_userslist', {
         clients: Object.values(connectedUsers).map(
-          ({
-            incomingInvites,
-            outcomingInvites,
-            incomingInvitesRejected,
-            ...rest
-          }) => ({
-            invited: incomingInvites.some(userHash => userHash === userId),
-            invites: outcomingInvites.some(userHash => userHash === userId),
-            rejected: incomingInvitesRejected.some(
-              userHash => userHash === userId
-            ),
-            ...rest
-          })
-        )
+          ({ incomingInvites, outcomingInvites, incomingInvitesRejected, ...rest }) => ({
+            invited: incomingInvites.some((userHash) => userHash === userId),
+            invites: outcomingInvites.some((userHash) => userHash === userId),
+            rejected: incomingInvitesRejected.some((userHash) => userHash === userId),
+            ...rest,
+          }),
+        ),
       });
     });
   };
 
-  const loginOnServer = (
-    dbUserData,
-    password,
-    error = 'Error in Email or Password'
-  ) => {
+  const loginOnServer = (dbUserData, password, error = 'Error in Email or Password') => {
     console.log('LoggedIn', JSON.stringify(dbUserData, null, 2));
     if (dbUserData.password === password) {
       updateConnectedUserInfo({
         ...dbUserData,
-        isLoggedIn: true
+        isLoggedIn: true,
       });
       updateUsersList();
       sendBack(null, 'update_user', user);
     } else {
       sendBack(null, 'update_user', {
-        error
+        error,
       });
     }
   };
@@ -120,9 +105,9 @@ const socketListeners = (io, socket) => {
             }
             console.log('Registered', JSON.stringify(user, null, 2));
             sendBack(null, 'update_user', { error: 'Err on registration' });
-          })
+          }),
         );
-      })
+      }),
     );
   };
 
@@ -140,7 +125,7 @@ const socketListeners = (io, socket) => {
         } else {
           sendBack(null, 'update_user', { error: 'No user' });
         }
-      })
+      }),
     );
   });
 
@@ -154,7 +139,7 @@ const socketListeners = (io, socket) => {
 
   socket.on('update_user', ({ name }) => {
     updateConnectedUserInfo({
-      name
+      name,
     });
     if (user.isLoggedIn) {
       updateDbUserName(user, withErrLog());
@@ -169,15 +154,11 @@ const socketListeners = (io, socket) => {
       { email },
       withErrLog(([dbUserData]) => {
         if (dbUserData) {
-          loginOnServer(
-            dbUserData,
-            password,
-            'User Already Exists, Try to Login'
-          );
+          loginOnServer(dbUserData, password, 'User Already Exists, Try to Login');
         } else {
           registerOnServer({ name, email, password });
         }
-      })
+      }),
     );
   });
 
@@ -185,13 +166,12 @@ const socketListeners = (io, socket) => {
     if (connectedUsers[hash]) {
       updateUserInfo(hash, {
         incomingInvites: [...connectedUsers[hash].incomingInvites, socketId],
-        incomingInvitesRejected: excludeItems(
-          connectedUsers[hash].incomingInvitesRejected,
-          [socketId]
-        )
+        incomingInvitesRejected: excludeItems(connectedUsers[hash].incomingInvitesRejected, [
+          socketId,
+        ]),
       });
       updateConnectedUserInfo({
-        outcomingInvites: [...connectedUsers[socketId].outcomingInvites, hash]
+        outcomingInvites: [...connectedUsers[socketId].outcomingInvites, hash],
       });
       console.log('Invited', JSON.stringify(connectedUsers[socketId], null, 2));
       updateUsersList();
@@ -201,25 +181,14 @@ const socketListeners = (io, socket) => {
   socket.on('reject_invite', ({ hash }) => {
     if (connectedUsers[hash]) {
       updateUserInfo(hash, {
-        outcomingInvites: excludeItems(connectedUsers[hash].incomingInvites, [
-          socketId
-        ])
+        outcomingInvites: excludeItems(connectedUsers[hash].incomingInvites, [socketId]),
       });
       updateConnectedUserInfo({
-        incomingInvites: excludeItems(
-          connectedUsers[socketId].outcomingInvites,
-          [hash]
-        ),
-        incomingInvitesRejected: [
-          ...connectedUsers[socketId].incomingInvitesRejected,
-          hash
-        ]
+        incomingInvites: excludeItems(connectedUsers[socketId].outcomingInvites, [hash]),
+        incomingInvitesRejected: [...connectedUsers[socketId].incomingInvitesRejected, hash],
       });
 
-      console.log(
-        'Rejected',
-        JSON.stringify(connectedUsers[socketId], null, 2)
-      );
+      console.log('Rejected', JSON.stringify(connectedUsers[socketId], null, 2));
       updateUsersList();
     }
   });
@@ -228,16 +197,16 @@ const socketListeners = (io, socket) => {
   socket.on('accept_invite', ({ hash }) => {
     if (connectedUsers[hash]) {
       updateUserInfo(hash, {
-        isInBattle: true
+        isInBattle: true,
       });
       updateConnectedUserInfo({
-        isInBattle: true
+        isInBattle: true,
       });
       updateBattleCommonData(hash, {
-        partner: socketId
+        partner: socketId,
       });
       updateBattleCommonData(socketId, {
-        partner: hash
+        partner: hash,
       });
       updateUsersList();
       sendTo(null, hash, 'start_battle', battlesData[hash]);

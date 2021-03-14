@@ -1,27 +1,19 @@
-import React, { useCallback, useState, useEffect } from 'react';
-import { bindActionCreators } from 'redux';
+import React, { useCallback, useEffect, useState } from 'react';
 import { connect } from 'react-redux';
-import { usersListSelector } from '../reducers/users';
+import { bindActionCreators } from 'redux';
 import {
-  userNameSelector,
+  clearUserAction,
   userEmailSelector,
-  userPasswordSelector,
-  userLoginStateSelector,
   userHashSelector,
   userInBattleSelector,
-  clearUserAction
+  userLoginStateSelector,
+  userNameSelector,
+  userPasswordSelector,
 } from '../reducers/user';
+import { usersListSelector } from '../reducers/users';
 import { socket } from '../socket';
 
-const Lobby = ({
-  name,
-  isLoggedIn,
-  email,
-  password,
-  clients,
-  hash,
-  clearUser
-}) => {
+const Lobby = ({ name, isLoggedIn, email, password, clients, hash, clearUser }) => {
   const [userName, changeUserName] = useState('');
   const [userEmail, changeUserEmail] = useState('');
   const [userPassword, changeUserPassword] = useState('');
@@ -57,7 +49,7 @@ const Lobby = ({
   const loginHandler = useCallback(() => {
     socket.emit('login', {
       email: userEmail,
-      password: userPassword
+      password: userPassword,
     });
   }, [userEmail, userPassword]);
 
@@ -66,7 +58,7 @@ const Lobby = ({
       socket.emit('register_user', {
         name: userName,
         email: userEmail,
-        password: userPassword
+        password: userPassword,
       });
     }
   }, [userName, userEmail, userPassword]);
@@ -80,26 +72,21 @@ const Lobby = ({
     (clientHash, invites) => () => {
       socket.emit(invites ? 'accept_invite' : 'invite', { hash: clientHash });
     },
-    []
+    [],
   );
 
   const rejectInviteHandler = useCallback(
-    clientHash => () => {
+    (clientHash) => () => {
       socket.emit('reject_invite', { hash: clientHash });
     },
-    []
+    [],
   );
 
   return (
     <>
       <div className="name-display">{name}</div>
 
-      <input
-        type="name"
-        className="name-change"
-        value={userName}
-        onChange={editNameHandler}
-      />
+      <input type="name" className="name-change" value={userName} onChange={editNameHandler} />
       <button onClick={changeNameHandler} type="button" id="changeNameButton">
         Change Name
       </button>
@@ -149,14 +136,7 @@ const Lobby = ({
       <div>Connected clients:</div>
       <div className="clients">
         {clients.map(
-          ({
-            name: clientName,
-            hash: clientHash,
-            invited,
-            invites,
-            rejected,
-            isInBattle
-          }) => (
+          ({ name: clientName, hash: clientHash, invited, invites, rejected, isInBattle }) => (
             <div key={clientHash}>
               {clientName}
               {hash !== clientHash && !isInBattle && (
@@ -170,10 +150,7 @@ const Lobby = ({
                   </button>
                   {rejected && <span>rejected</span>}
                   {invites && (
-                    <button
-                      onClick={rejectInviteHandler(clientHash)}
-                      type="button"
-                    >
+                    <button onClick={rejectInviteHandler(clientHash)} type="button">
                       reject
                     </button>
                   )}
@@ -181,29 +158,29 @@ const Lobby = ({
               )}
               {isInBattle ? ' - In battle' : ''}
             </div>
-          )
+          ),
         )}
       </div>
     </>
   );
 };
 
-const mapStateToProps = state => ({
+const mapStateToProps = (state) => ({
   clients: usersListSelector(state),
   name: userNameSelector(state),
   email: userEmailSelector(state),
   password: userPasswordSelector(state),
   isLoggedIn: userLoginStateSelector(state),
   hash: userHashSelector(state),
-  isInBattle: userInBattleSelector(state)
+  isInBattle: userInBattleSelector(state),
 });
 
-const mapDispatchToProps = dispatch =>
+const mapDispatchToProps = (dispatch) =>
   bindActionCreators(
     {
-      clearUser: clearUserAction
+      clearUser: clearUserAction,
     },
-    dispatch
+    dispatch,
   );
 
 export default connect(mapStateToProps, mapDispatchToProps)(Lobby);

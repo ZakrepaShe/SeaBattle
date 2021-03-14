@@ -1,8 +1,8 @@
 import React from 'react';
 import { render } from 'react-dom';
+import { history } from './utils/common';
 import ViewsRouter from './pages';
 import store from './store';
-import { history } from './utils/common';
 
 const sea = document.getElementById('sea');
 

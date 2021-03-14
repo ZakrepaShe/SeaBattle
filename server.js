@@ -23,6 +23,6 @@ app.get('*', (req, res) => {
 });
 
 /** Socket listeners */
-io.on('connection', socket => {
+io.on('connection', (socket) => {
   socketListeners(io, socket);
 });

@@ -1,11 +1,11 @@
-import { socket } from '.';
-import { getCookie, setCookie } from '../utils/cookies';
+import { updateBattlefieldAction } from '../reducers/battlefield';
 import { updateUserAction } from '../reducers/user';
 import { updateUsersListAction } from '../reducers/users';
-import { updateBattlefieldAction } from '../reducers/battlefield';
 import { push } from '../utils/common';
+import { getCookie, setCookie } from '../utils/cookies';
+import { socket } from '.';
 
-export const autoLogin = () => dispatch => {
+export const autoLogin = () => (dispatch) => {
   socket.on('connect', () => {
     const userData = getCookie('user');
     if (userData) {
@@ -18,8 +18,8 @@ export const autoLogin = () => dispatch => {
   });
 };
 
-export const updateUserThunk = () => dispatch => {
-  socket.on('update_user', data => {
+export const updateUserThunk = () => (dispatch) => {
+  socket.on('update_user', (data) => {
     if (data.error) {
       console.log(data.error);
       return false;
@@ -33,20 +33,20 @@ export const updateUserThunk = () => dispatch => {
   });
 };
 
-export const updateUsersList = () => dispatch => {
-  socket.on('update_userslist', data => {
+export const updateUsersList = () => (dispatch) => {
+  socket.on('update_userslist', (data) => {
     dispatch(updateUsersListAction(data));
   });
 };
 
-export const startBattleThunk = () => dispatch => {
-  socket.on('start_battle', data => {
+export const startBattleThunk = () => (dispatch) => {
+  socket.on('start_battle', (data) => {
     dispatch(updateBattlefieldAction(data));
-    push('/battle');
+    dispatch(push('/battle'));
   });
 };
 
-export default () => dispatch => {
+export default () => (dispatch) => {
   updateUserThunk()(dispatch);
   updateUsersList()(dispatch);
   startBattleThunk()(dispatch);

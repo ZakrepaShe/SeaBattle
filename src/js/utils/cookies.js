@@ -1,4 +1,4 @@
-export const getCookie = name => {
+export const getCookie = (name) => {
   const matches = document.cookie.match(
     // eslint-disable-next-line prettier/prettier
     new RegExp(`(?:^|; )${name.replace(/([.$?*|{}()[\]/+^])/g, '\\$1')}=([^;]*)`)
@@ -10,7 +10,7 @@ export const setCookie = (name, value, options = {}) => {
   // eslint-disable-next-line no-param-reassign
   options = {
     path: '/',
-    ...options
+    ...options,
   };
 
   if (options.expires) {
@@ -18,9 +18,7 @@ export const setCookie = (name, value, options = {}) => {
     options.expires = options.expires.toUTCString();
   }
 
-  let updatedCookie = `${encodeURIComponent(name)}=${encodeURIComponent(
-    value
-  )}`;
+  let updatedCookie = `${encodeURIComponent(name)}=${encodeURIComponent(value)}`;
 
   // eslint-disable-next-line no-restricted-syntax, guard-for-in
   for (const optionKey in options) {

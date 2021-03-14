@@ -1,9 +1,9 @@
 import React, { Component } from 'react';
-import { Router, Route, Switch, Redirect } from 'react-router-dom';
-import { Provider, connect } from 'react-redux';
+import { connect, Provider } from 'react-redux';
+import { Redirect, Route, Router, Switch } from 'react-router-dom';
 import initListeners, { autoLogin } from '../socket/listeners';
-import Lobby from './connection-dashboard';
 import Battlefield from './battlefield';
+import Lobby from './connection-dashboard';
 
 class ViewsRouter extends Component {
   componentDidMount() {
@@ -17,8 +17,8 @@ class ViewsRouter extends Component {
       <Provider store={store}>
         <Router history={history}>
           <Switch>
-            <Route exact path="/lobby" component={Lobby} />
-            <Route exact path="/battle" component={Battlefield} />
+            <Route path="/lobby" component={Lobby} />
+            <Route path="/battle" component={Battlefield} />
             <Redirect to="lobby" />
           </Switch>
         </Router>
@@ -29,7 +29,7 @@ class ViewsRouter extends Component {
 
 const mapDispatchToProps = {
   initSocketListeners: initListeners,
-  initAutoLogin: autoLogin
+  initAutoLogin: autoLogin,
 };
 
 export default connect(null, mapDispatchToProps)(ViewsRouter);
