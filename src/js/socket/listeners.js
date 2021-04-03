@@ -1,4 +1,4 @@
-import { updateBattlefieldAction } from '../reducers/battlefield';
+import { clearBattlefieldAction, updateBattlefieldAction } from '../reducers/battlefield';
 import { updateUserAction } from '../reducers/user';
 import { updateUsersListAction } from '../reducers/users';
 import { push } from '../utils/common';
@@ -46,8 +46,24 @@ export const startBattleThunk = () => (dispatch) => {
   });
 };
 
+export const updateBattleThunk = () => (dispatch) => {
+  socket.on('update_battle', (data) => {
+    dispatch(updateBattlefieldAction(data));
+  });
+};
+
+export const endBattleThunk = () => (dispatch) => {
+  socket.on('end_battle', ({ winner }) => {
+    dispatch(push('/lobby'));
+    dispatch(clearBattlefieldAction());
+    alert(`Winner: ${winner}`);
+  });
+};
+
 export default () => (dispatch) => {
   updateUserThunk()(dispatch);
   updateUsersList()(dispatch);
   startBattleThunk()(dispatch);
+  updateBattleThunk()(dispatch);
+  endBattleThunk()(dispatch);
 };

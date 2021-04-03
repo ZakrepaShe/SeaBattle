@@ -148,12 +148,12 @@ const Lobby = ({ name, isLoggedIn, email, password, clients, hash, clearUser }) 
                   >
                     {invites ? 'join' : invited ? 'invited' : 'invite'}
                   </button>
-                  {rejected && <span>rejected</span>}
                   {invites && (
                     <button onClick={rejectInviteHandler(clientHash)} type="button">
                       reject
                     </button>
                   )}
+                  {rejected && <span>Your last request was rejected</span>}
                 </>
               )}
               {isInBattle ? ' - In battle' : ''}

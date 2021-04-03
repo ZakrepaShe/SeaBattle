@@ -1,6 +1,17 @@
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { connect } from 'react-redux';
-import { battlePartnerSelector } from '../reducers/battlefield';
+import {
+  activeTurnSelector,
+  battlePartnerIdSelector,
+  battlePartnerNameSelector,
+  fieldSelector,
+  isPartnerReadyForBattleSelector,
+  isReadyForBattleSelector,
+  partnerFieldSelector,
+  showPartnerFieldSelector,
+} from '../reducers/battlefield';
+import { userNameSelector } from '../reducers/user';
+import { socket } from '../socket';
 import { push } from '../utils/common';
 
 const battlefieldStyle = {
@@ -69,16 +80,50 @@ const getDisabledIds = (id) => {
   return ids;
 };
 
-const Battlefield = ({ partner, redirect }) => {
-  const [cellsInfo, updateCellsInfo] = useState({ active: [], disabled: {} });
-  // if (!partner) {
-  //   redirect('/lobby');
-  // }
+const Battlefield = ({
+  name,
+  partnerId,
+  partnerName,
+  redirect,
+  isReadyForBattle,
+  isPartnerReadyForBattle,
+  field,
+  partnerField,
+  showPartnerField,
+  activeTurn,
+}) => {
+  const [cellsInfo, updateCellsInfo] = useState(field);
+  if (!partnerId) {
+    redirect('/lobby');
+  }
+
+  useEffect(() => {
+    updateCellsInfo({
+      ...cellsInfo,
+      ...field,
+    });
+  }, [field]);
+
+  const playerReadyHandler = useCallback(() => {
+    socket.emit('player_ready', {
+      partnerId,
+      field: { active: cellsInfo.active, checked: cellsInfo.checked },
+    });
+  }, [partnerId, cellsInfo]);
+
+  const turnHandler = useCallback(
+    (uuid) => () => {
+      socket.emit('player_turn', {
+        partnerId,
+        cell: uuid,
+      });
+    },
+    [partnerId],
+  );
 
   const toggleActivity = (uuid) => () => {
     // 4 cells diagonally to active id
     const activeIdDisabledCells = getDisabledIds(uuid);
-    console.log(activeIdDisabledCells);
 
     if (cellsInfo.active.some((id) => id === uuid)) {
       /** remove from active */
@@ -90,50 +135,106 @@ const Battlefield = ({ partner, redirect }) => {
       updateCellsInfo({
         active,
         disabled,
+        checked: [],
       });
     } else {
       /** add to active */
       updateCellsInfo({
         active: [...cellsInfo.active, uuid],
         disabled: { ...cellsInfo.disabled, [uuid]: activeIdDisabledCells },
+        checked: [],
       });
     }
   };
 
   return (
-    <>
-      <div className="name-display">{partner}</div>
-      <div className="battlefield" style={battlefieldStyle}>
-        {new Array(10).fill(0).map((_, rowIndex) => (
-          <div key={rowIndex} className="row" style={rowStyle}>
-            {new Array(10).fill(0).map((__, colIndex) => {
-              const uuid = `${rowIndex}.${colIndex}`;
-              const active = cellsInfo.active.some((id) => id === uuid);
-              const disabled = Object.values(cellsInfo.disabled).some((disabledArr) =>
-                disabledArr.some((id) => id === uuid),
-              );
-              return (
-                <div
-                  className="cell"
-                  key={colIndex}
-                  style={cellStyle}
-                  id={uuid}
-                  onClick={disabled ? () => {} : toggleActivity(uuid)}
-                >
-                  {active ? 'X' : ''}
-                  {disabled ? '·' : ''}
-                </div>
-              );
-            })}
-          </div>
-        ))}
+    <div className="box" style={{ width: '100%', display: 'flex', justifyContent: 'space-around' }}>
+      <div>
+        <div className="name-display">{name}</div>
+        <div className="battlefield" style={battlefieldStyle}>
+          {new Array(10).fill(0).map((_, rowIndex) => (
+            <div key={rowIndex} className="row" style={rowStyle}>
+              {new Array(10).fill(0).map((__, colIndex) => {
+                const uuid = `${rowIndex}.${colIndex}`;
+                const active = cellsInfo.active.some((id) => id === uuid);
+                const disabled = Object.values(cellsInfo.disabled).some((disabledArr) =>
+                  disabledArr.some((id) => id === uuid),
+                );
+                const checked = cellsInfo.checked.some((id) => id === uuid);
+                return (
+                  <div
+                    className="cell"
+                    key={colIndex}
+                    style={cellStyle}
+                    id={uuid}
+                    onClick={disabled || isReadyForBattle ? () => {} : toggleActivity(uuid)}
+                  >
+                    {active && checked ? 'X' : active ? 'S' : checked ? 'O' : disabled ? '·' : ''}
+                  </div>
+                );
+              })}
+            </div>
+          ))}
+        </div>
+        {!showPartnerField && (
+          <>
+            {!isReadyForBattle && (
+              <div>Click on field to make Ships shape(currently no restrictions)</div>
+            )}
+            <button type="button" disabled={isReadyForBattle} onClick={playerReadyHandler}>
+              {isReadyForBattle ? 'Waiting for partner' : 'Ready'}
+            </button>
+          </>
+        )}
       </div>
-    </>
+      <div>
+        <div className="name-display">{partnerName}</div>
+        {showPartnerField ? (
+          <>
+            <div className="battlefield" style={battlefieldStyle}>
+              {new Array(10).fill(0).map((_, rowIndex) => (
+                <div key={rowIndex} className="row" style={rowStyle}>
+                  {new Array(10).fill(0).map((__, colIndex) => {
+                    const uuid = `${rowIndex}.${colIndex}`;
+                    const active = partnerField.active.some((id) => id === uuid);
+                    const checked = partnerField.checked.some((id) => id === uuid);
+                    return (
+                      <div
+                        className="cell"
+                        key={colIndex}
+                        style={cellStyle}
+                        id={uuid}
+                        onClick={active || checked ? () => {} : turnHandler(uuid)}
+                      >
+                        {active && checked ? 'X' : active ? 'S' : checked ? 'O' : ''}
+                      </div>
+                    );
+                  })}
+                </div>
+              ))}
+            </div>
+            <div className="name-display">{activeTurn ? 'Your turn' : 'Opponent turn'}</div>
+          </>
+        ) : (
+          <button type="button" disabled>
+            {isPartnerReadyForBattle ? 'Ready' : 'Preparing'}
+          </button>
+        )}
+      </div>
+    </div>
   );
 };
 
 const mapStateToProps = (state) => ({
-  partner: battlePartnerSelector(state),
+  name: userNameSelector(state),
+  partnerId: battlePartnerIdSelector(state),
+  partnerName: battlePartnerNameSelector(state),
+  isReadyForBattle: isReadyForBattleSelector(state),
+  isPartnerReadyForBattle: isPartnerReadyForBattleSelector(state),
+  field: fieldSelector(state),
+  partnerField: partnerFieldSelector(state),
+  showPartnerField: showPartnerFieldSelector(state),
+  activeTurn: activeTurnSelector(state),
 });
 
 const mapDispatchToProps = {

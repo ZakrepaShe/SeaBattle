@@ -181,10 +181,10 @@ const socketListeners = (io, socket) => {
   socket.on('reject_invite', ({ hash }) => {
     if (connectedUsers[hash]) {
       updateUserInfo(hash, {
-        outcomingInvites: excludeItems(connectedUsers[hash].incomingInvites, [socketId]),
+        outcomingInvites: excludeItems(connectedUsers[hash].outcomingInvites, [socketId]),
       });
       updateConnectedUserInfo({
-        incomingInvites: excludeItems(connectedUsers[socketId].outcomingInvites, [hash]),
+        incomingInvites: excludeItems(connectedUsers[socketId].incomingInvites, [hash]),
         incomingInvitesRejected: [...connectedUsers[socketId].incomingInvitesRejected, hash],
       });
 
@@ -198,25 +198,98 @@ const socketListeners = (io, socket) => {
     if (connectedUsers[hash]) {
       updateUserInfo(hash, {
         isInBattle: true,
+        outcomingInvites: excludeItems(connectedUsers[hash].outcomingInvites, [socketId]),
       });
       updateConnectedUserInfo({
         isInBattle: true,
+        incomingInvites: excludeItems(connectedUsers[socketId].incomingInvites, [hash]),
       });
       updateBattleCommonData(hash, {
-        partner: socketId,
+        partnerId: socketId,
+        partnerName: connectedUsers[socketId].name,
       });
       updateBattleCommonData(socketId, {
-        partner: hash,
+        partnerId: hash,
+        partnerName: connectedUsers[hash].name,
       });
       updateUsersList();
+      console.log('Accept', JSON.stringify(connectedUsers[socketId], null, 2));
       sendTo(null, hash, 'start_battle', battlesData[hash]);
       sendBack(null, 'start_battle', battlesData[socketId]);
+    }
+  });
+
+  socket.on('player_ready', ({ partnerId, field }) => {
+    if (connectedUsers[partnerId]) {
+      updateBattleCommonData(partnerId, {
+        isPartnerReadyForBattle: true,
+        showPartnerField: battlesData[partnerId].isReadyForBattle || false,
+        partnerField: {
+          ...field,
+          active: field.active.filter((cellId) => field.checked.includes(cellId)),
+        },
+      });
+      updateBattleCommonData(socketId, {
+        isReadyForBattle: true,
+        showPartnerField: battlesData[partnerId].isReadyForBattle || false,
+        activeTurn: !battlesData[partnerId].isReadyForBattle,
+        field,
+      });
+      console.log('Start battle', JSON.stringify(battlesData[socketId], null, 2));
+
+      sendTo(null, partnerId, 'update_battle', battlesData[partnerId]);
+      sendBack(null, 'update_battle', battlesData[socketId]);
+    }
+  });
+
+  socket.on('player_turn', ({ partnerId, cell }) => {
+    if (connectedUsers[partnerId] && battlesData[socketId]?.activeTurn) {
+      const hit = battlesData[partnerId].field.active.includes(cell);
+      updateBattleCommonData(partnerId, {
+        activeTurn: !hit,
+        field: {
+          ...battlesData[partnerId].field,
+          checked: [...battlesData[partnerId].field.checked, cell],
+        },
+      });
+
+      const activePartnerFields = battlesData[partnerId].field.active.filter((cellId) =>
+        battlesData[partnerId].field.checked.includes(cellId),
+      );
+
+      updateBattleCommonData(socketId, {
+        activeTurn: hit,
+        partnerField: {
+          ...battlesData[partnerId].field,
+          active: activePartnerFields,
+        },
+      });
+
+      if (activePartnerFields.length === battlesData[partnerId].field.active.length) {
+        sendTo(null, partnerId, 'update_battle', battlesData[partnerId]);
+        sendTo(null, partnerId, 'end_battle', { winner: connectedUsers[socketId].name });
+        sendBack(null, 'update_battle', battlesData[socketId]);
+        sendBack(null, 'end_battle', { winner: connectedUsers[socketId].name });
+        delete battlesData[socketId];
+        delete battlesData[partnerId];
+        updateUserInfo(partnerId, {
+          isInBattle: false,
+        });
+        updateConnectedUserInfo({
+          isInBattle: false,
+        });
+        updateUsersList();
+      } else {
+        sendTo(null, partnerId, 'update_battle', battlesData[partnerId]);
+        sendBack(null, 'update_battle', battlesData[socketId]);
+      }
     }
   });
 
   socket.on('disconnect', () => {
     if (connectedUsers[socketId]) {
       delete connectedUsers[socketId];
+      delete battlesData[socketId];
       user = null;
       updateUsersList();
     }
