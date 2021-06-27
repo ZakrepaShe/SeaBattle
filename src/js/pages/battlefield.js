@@ -13,6 +13,7 @@ import {
 import { userNameSelector } from '../reducers/user';
 import { socket } from '../socket';
 import { push } from '../utils/common';
+import { detectShips } from '../utils/detectShips';
 
 const battlefieldStyle = {
   position: 'relative',
@@ -42,6 +43,7 @@ const YBoundMax = 9;
 const XBoundMax = 9;
 const YBoundMin = 0;
 const XBoundMin = 0;
+const defaultShipsInfo = { 4: 0, 3: 0, 2: 0, 1: 0 }
 
 const getDisabledIds = (id) => {
   const [Y, X] = id.split('.');
@@ -93,6 +95,8 @@ const Battlefield = ({
   activeTurn,
 }) => {
   const [cellsInfo, updateCellsInfo] = useState(field);
+  const [shipsInfo, updateShipsInfo] = useState(defaultShipsInfo);
+  const [canStartBattle, updateCanStartBattle] = useState(false);
   if (!partnerId) {
     redirect('/lobby');
   }
@@ -124,10 +128,11 @@ const Battlefield = ({
   const toggleActivity = (uuid) => () => {
     // 4 cells diagonally to active id
     const activeIdDisabledCells = getDisabledIds(uuid);
+    let active = cellsInfo.active;
 
-    if (cellsInfo.active.some((id) => id === uuid)) {
+    if (active.some((id) => id === uuid)) {
       /** remove from active */
-      const active = [...cellsInfo.active.filter((id) => id !== uuid)];
+      active = [...active.filter((id) => id !== uuid)];
       delete cellsInfo.disabled[uuid];
       const disabled = {
         ...cellsInfo.disabled,
@@ -139,11 +144,32 @@ const Battlefield = ({
       });
     } else {
       /** add to active */
+      active = [...active, uuid];
       updateCellsInfo({
-        active: [...cellsInfo.active, uuid],
+        active,
         disabled: { ...cellsInfo.disabled, [uuid]: activeIdDisabledCells },
         checked: [],
       });
+    }
+    const shipsCoords = detectShips(active, XBoundMin, XBoundMax);
+    const shipsTypesCounter = shipsCoords.reduce(
+      (acc, shipCoordsArr) => ({
+        ...acc,
+        [shipCoordsArr.length]: acc[shipCoordsArr.length] ? acc[shipCoordsArr.length] + 1 : 1,
+      }),
+      {},
+    );
+    updateShipsInfo({
+      ...defaultShipsInfo,
+      ...shipsTypesCounter,
+    });
+    if (
+      shipsTypesCounter['4'] === 1 &&
+      shipsTypesCounter['3'] === 2 &&
+      shipsTypesCounter['2'] === 3 &&
+      shipsTypesCounter['1'] === 4
+    ) {
+      updateCanStartBattle(true);
     }
   };
 
@@ -179,10 +205,26 @@ const Battlefield = ({
         {!showPartnerField && (
           <>
             {!isReadyForBattle && (
-              <div>Click on field to make Ships shape(currently no restrictions)</div>
+              <>
+                <div>Click on field to make Ships shape</div>
+                <div>You need 4x1, 3x2, 2x3, 1x4</div>
+                <div>{`You have 
+                4x${shipsInfo['4']}, 
+                3x${shipsInfo['3']}, 
+                2x${shipsInfo['2']}, 
+                1x${shipsInfo['1']}`}</div>
+              </>
             )}
-            <button type="button" disabled={isReadyForBattle} onClick={playerReadyHandler}>
-              {isReadyForBattle ? 'Waiting for partner' : 'Ready'}
+            <button
+              type="button"
+              disabled={isReadyForBattle || !canStartBattle}
+              onClick={playerReadyHandler}
+            >
+              {!canStartBattle
+                ? 'Fill space with ships'
+                : isReadyForBattle
+                ? 'Waiting for partner'
+                : 'Ready'}
             </button>
           </>
         )}

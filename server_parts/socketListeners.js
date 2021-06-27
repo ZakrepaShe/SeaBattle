@@ -66,10 +66,18 @@ const socketListeners = (io, socket) => {
     Object.keys(connectedUsers).forEach((userId) => {
       sendTo(null, userId, 'update_userslist', {
         clients: Object.values(connectedUsers).map(
-          ({ incomingInvites, outcomingInvites, incomingInvitesRejected, ...rest }) => ({
+          ({
+            incomingInvites,
+            outcomingInvites,
+            incomingInvitesRejected,
+            email,
+            password,
+            ...rest
+          }) => ({
             invited: incomingInvites.some((userHash) => userHash === userId),
             invites: outcomingInvites.some((userHash) => userHash === userId),
             rejected: incomingInvitesRejected.some((userHash) => userHash === userId),
+            ...(rest.hash === userId && { email, password }),
             ...rest,
           }),
         ),
