@@ -211,6 +211,9 @@ const socketListeners = (io, socket) => {
       updateConnectedUserInfo({
         isInBattle: true,
         incomingInvites: excludeItems(connectedUsers[socketId].incomingInvites, [hash]),
+        incomingInvitesRejected: excludeItems(connectedUsers[socketId].incomingInvitesRejected, [
+          hash,
+        ]),
       });
       updateBattleCommonData(hash, {
         partnerId: socketId,
